@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Fogo DOOM</title>
+  <style>
+    canvas {
+      image-rendering: pixelated;
+      background: black;
+      display: block;
+      margin: 0 auto 10px;
+    }
+    .controls {
+      text-align: center;
+      margin-bottom: 20px;
+    }
+    button {
+      font-size: 16px;
+      padding: 10px 20px;
+      margin: 0 10px;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+
+<canvas id="fireCanvas" width="300" height="200"></canvas>
+
+<div class="controls">
+  <button onclick="increaseFire()">Aumentar</button>
+  <button onclick="decreaseFire()">Diminuir</button>
+</div>
+
+<script>
+  const canvas = document.getElementById('fireCanvas');
+  const ctx = canvas.getContext('2d');
+
+  const fireWidth = canvas.width;
+  const fireHeight = canvas.height;
+  const firePixelsArray = new Array(fireWidth * fireHeight).fill(0);
+
+  const paletteSize = 36;
+  const fireColorsPalette = generateFirePalette(paletteSize);
+
+  // quanto mais alto, mais fraco o fogo
+  let decayRate = 2;
+
+  function generateFirePalette(size) {
+    const palette = [];
+    const darkRed = [7, 7, 7];
+    const orange = [215, 95, 7];
+    const yellow = [255, 255, 161];
+
+    for (let i = 0; i < size; i++) {
+      let r, g, b;
+      const ratio = i / (size - 1);
+
+      if (ratio < 0.5) {
+        const innerRatio = ratio / 0.5;
+        r = interpolate(darkRed[0], orange[0], innerRatio);
+        g = interpolate(darkRed[1], orange[1], innerRatio);
+        b = interpolate(darkRed[2], orange[2], innerRatio);
+      } else {
+        const innerRatio = (ratio - 0.5) / 0.5;
+        r = interpolate(orange[0], yellow[0], innerRatio);
+        g = interpolate(orange[1], yellow[1], innerRatio);
+        b = interpolate(orange[2], yellow[2], innerRatio);
+      }
+      palette.push([r, g, b]);
+    }
+
+    return palette;
+  }
+
+  function interpolate(start, end, ratio) {
+    return Math.floor(start + (end - start) * ratio);
+  }
+
+  function createFireSource() {
+    for (let x = 0; x < fireWidth; x++) {
+      const index = (fireHeight - 1) * fireWidth + x;
+      firePixelsArray[index] = paletteSize - 1;
+    }
+  }
+
+  function calculateFirePropagation() {
+    for (let y = 1; y < fireHeight; y++) {
+      for (let x = 0; x < fireWidth; x++) {
+        const src = y * fireWidth + x;
+        const below = src + fireWidth;
+
+        if (below >= firePixelsArray.length) continue;
+
+        const decay = Math.floor(Math.random() * decayRate);
+        const newIntensity = Math.max(firePixelsArray[below] - decay, 0);
+
+        const wind = Math.floor(Math.random() * 3) - 1;
+        const dst = src + wind >= 0 ? src + wind : src;
+
+        firePixelsArray[dst] = newIntensity;
+      }
+    }
+  }
+
+  function renderFire() {
+    const image = ctx.createImageData(fireWidth, fireHeight);
+
+    for (let i = 0; i < firePixelsArray.length; i++) {
+      const intensity = firePixelsArray[i];
+      const [r, g, b] = fireColorsPalette[intensity];
+
+      const pixelIndex = i * 4;
+      image.data[pixelIndex + 0] = r;
+      image.data[pixelIndex + 1] = g;
+      image.data[pixelIndex + 2] = b;
+      image.data[pixelIndex + 3] = 255;
+    }
+
+    ctx.putImageData(image, 0, 0);
+  }
+
+  function update() {
+    calculateFirePropagation();
+    renderFire();
+    requestAnimationFrame(update);
+  }
+  // menor decadência = fogo mais forte
+  function increaseFire() {
+    decayRate = Math.max(decayRate - 1, 1);
+  }
+  // maior decadência = fogo mais fraco
+  function decreaseFire() {
+    decayRate = Math.min(decayRate + 1, 5);
+  }
+
+  createFireSource();
+  update();
+</script>
+
+</body>
+</html>
